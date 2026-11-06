@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horloge Outre-Mer</title>
+<meta name="description" content="Heure de Lyon et des Outre-mer, date, semaine, équipes, jours fériés et planification.">
+<meta name="theme-color" content="#111318">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --fond: #111318; --surface: #1a1d25; --surface2: #232733; --texte: #f3f5f8; --gris: #a3abba; --gris2: #6b7383;
+    --ligne: rgba(255,255,255,.09); --accent: #6cb2ff; --ok: #4ade80; --warn: #fbbf24; --off: #7b8394;
+    --rayon: 16px; --ombre: 0 6px 18px rgba(0,0,0,.35);
+  }
+  body.clair {
+    --fond: #eef1f6; --surface: #ffffff; --surface2: #e5e9f0; --texte: #1a1f2b; --gris: #5b6474; --gris2: #8a93a3;
+    --ligne: rgba(0,0,0,.10); --accent: #2f7fe0; --ombre: 0 6px 16px rgba(30,40,60,.16);
+  }
+  html:has(body.clair) { background: #eef1f6; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--fond); color: var(--texte); min-height: 100%;
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; font-size: 13px; }
+  body { padding: 12px; user-select: none; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .num { font-variant-numeric: tabular-nums; }
+  [hidden] { display: none !important; }
+
+  /* ---------- Cartes (héros + zones) : fond « ciel » selon l'heure locale ---------- */
+  .ciel { position: relative; border-radius: var(--rayon); padding: 12px 13px; overflow: hidden; color: #fff;
+    background: linear-gradient(155deg, var(--c1, #1d2547), var(--c2, #121831)); box-shadow: var(--ombre);
+    transition: background .8s; }
+  .ciel::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: radial-gradient(120% 80% at 100% 0%, rgba(255,255,255,.10), transparent 55%);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); }
+
+  /* ---------- Héros Lyon ---------- */
+  .hero { cursor: pointer; overflow: visible; z-index: 5; }
+  .h-haut { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .lieu { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.75);
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .outils { display: flex; gap: 2px; position: relative; z-index: 2; flex: none; }
+  .outil { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: rgba(255,255,255,.78); }
+  .outil:hover, .outil.actif { background: rgba(255,255,255,.16); color: #fff; }
+  .h-centre { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; }
+  .h-heure { font-size: 46px; font-weight: 650; letter-spacing: -1px; line-height: 1.05; }
+  .h-heure .sec { font-size: 22px; font-weight: 400; color: rgba(255,255,255,.6); letter-spacing: 0; margin-left: 2px; }
+  .h-droite { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .pill { font-size: 12px; font-weight: 650; padding: 5px 11px; border-radius: 999px; background: rgba(255,255,255,.16);
+    white-space: nowrap; backdrop-filter: blur(4px); }
+  .h-meteo, .z-astre { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: rgba(255,255,255,.92); white-space: nowrap; }
+  .h-date { font-size: 14px; margin-top: 1px; color: rgba(255,255,255,.92); }
+  .h-bas { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; min-height: 22px; }
+  .h-compact { display: none; min-width: 0; overflow: hidden; }
+
+  /* ---------- Barre de journée (24 h, plage 8 h – 18 h) ---------- */
+  .barre { position: relative; height: 5px; border-radius: 3px; background: rgba(0,0,0,.28); margin-top: 9px; }
+  .barre .bande { position: absolute; top: 0; bottom: 0; left: 33.333%; width: 41.667%; border-radius: 3px; background: rgba(255,255,255,.28); }
+  .barre .curseur { position: absolute; top: 50%; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; border-radius: 50%;
+    background: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.25); transition: left .3s; }
+
+  .statut { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: rgba(255,255,255,.88); white-space: nowrap; }
+  .statut i { width: 8px; height: 8px; border-radius: 50%; background: var(--off); box-shadow: 0 0 0 2px rgba(0,0,0,.18); }
+  .statut.ok i { background: var(--ok); } .statut.warn i { background: var(--warn); }
+  .badge { font-size: 10.5px; font-weight: 650; padding: 1px 7px; border-radius: 999px; background: rgba(251,191,36,.30); color: #fff;
+    white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .badge.danger { background: rgba(239,68,68,.55); }
+
+  /* ---------- Avatars ---------- */
+  .avatars { display: flex; }
+  .av { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 9.5px; font-weight: 700;
+    color: #fff; margin-left: -6px; box-shadow: 0 0 0 2px rgba(17,19,24,.55); }
+  .av:first-child { margin-left: 0; }
+  .av.plus { background: rgba(255,255,255,.22); }
+
+  /* ---------- Boutons ---------- */
+  .btn { padding: 6px 12px; border-radius: 8px; background: var(--accent); color: #0b1220; font-weight: 650; }
+  body.clair .btn { color: #fff; }
+  .btn.sec { background: var(--surface2); color: var(--texte); box-shadow: inset 0 0 0 1px var(--ligne); }
+  .btn.petit { padding: 4px 9px; font-size: 12px; }
+
+  /* ---------- Planifier (convertisseur + créneau commun) ---------- */
+  .plan { margin-top: 12px; padding: 12px; border-radius: var(--rayon); background: var(--surface);
+    box-shadow: var(--ombre), inset 0 0 0 1px var(--ligne); }
+  .pl-tete { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .pl-tete b { font-size: 13px; }
+  .pl-sous { font-size: 11px; color: var(--gris); }
+  .pl-ligne { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .pl-heure { font-size: 22px; font-weight: 650; }
+  .pl-lyon { color: var(--gris); font-size: 12px; }
+  .pl-ligne .btn { margin-left: auto; }
+  .pl-frise { position: relative; height: 30px; margin-top: 10px; }
+  .pl-cases { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(96, 1fr); border-radius: 8px; overflow: hidden;
+    background: var(--surface2); }
+  .pl-cases i { display: block; }
+  .pl-cases i:nth-child(4n+1) { box-shadow: inset 1px 0 0 var(--ligne); }
+  .pl-trait { position: absolute; top: -4px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--texte);
+    pointer-events: none; box-shadow: 0 0 0 2px var(--surface); }
+  #planCurseur { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: ew-resize; margin: 0; }
+  .pl-graduations { display: flex; justify-content: space-between; font-size: 10px; color: var(--gris2); margin-top: 4px; }
+  .pl-zones { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+  .chip { padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; background: var(--surface2); color: var(--gris);
+    box-shadow: inset 0 0 0 1px var(--ligne); }
+  .chip.on { background: rgba(108,178,255,.22); color: var(--texte); box-shadow: inset 0 0 0 1px rgba(108,178,255,.65); }
+  .pl-resume { margin-top: 9px; font-size: 12px; line-height: 1.45; }
+  .pl-resume b { color: var(--ok); }
+  body.clair .pl-resume b { color: #16a34a; }
+  .simu .zone { box-shadow: var(--ombre), 0 0 0 2px rgba(108,178,255,.6); }
+
+  /* ---------- Grille des zones ---------- */
+  .barre-edition { display: none; align-items: center; justify-content: space-between; gap: 8px; margin: 12px 0 0;
+    padding: 8px 10px; border-radius: 12px; background: var(--surface2); color: var(--gris); font-size: 12px; }
+  .edition .barre-edition { display: flex; }
+
+  .zones { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; }
+  .zone { cursor: pointer; transition: transform .15s, opacity .2s, box-shadow .15s; }
+  .zone:hover { transform: translateY(-2px); }
+  .zone.glisse { opacity: .35; transform: scale(.97); }
+  .zone.masquee { opacity: .38; filter: grayscale(.6); }
+  .edition .zone { cursor: grab; animation: tremble .35s ease-in-out infinite alternate; }
+  .edition .zone:nth-child(2n) { animation-delay: -.17s; }
+  @keyframes tremble { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
+
+  .z-haut { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; }
+  .z-nom { font-weight: 650; font-size: 13px; line-height: 1.2; }
+  .z-ville { font-size: 11px; color: rgba(255,255,255,.65); }
+  .z-astre { margin-top: 1px; }
+  .z-heure { font-size: 30px; font-weight: 650; letter-spacing: -.5px; line-height: 1.1; margin-top: 6px; }
+  .z-meta { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; font-size: 11.5px; color: rgba(255,255,255,.8); }
+  .z-meta .jour { background: rgba(255,255,255,.18); padding: 1px 7px; border-radius: 999px; color: #fff; font-weight: 600; }
+  .z-bas { display: flex; align-items: center; justify-content: space-between; margin-top: 9px; min-height: 22px; gap: 6px; }
+  .oeil { display: none; position: absolute; top: 8px; right: 8px; z-index: 2; width: 28px; height: 28px; border-radius: 8px;
+    place-items: center; background: rgba(0,0,0,.35); color: #fff; }
+  .edition .oeil { display: grid; }
+  .edition .z-astre { visibility: hidden; }
+
+  /* Disposition « liste » */
+  .liste .zones { grid-template-columns: 1fr; gap: 7px; }
+  .liste .zone { display: grid; grid-template-columns: 1fr auto auto auto; grid-template-areas: "haut av meta heure" "bas av meta heure";
+    column-gap: 12px; align-items: center; padding: 9px 13px; }
+  .liste .z-haut { grid-area: haut; } .liste .z-ville, .liste .zone .barre { display: none; }
+  .liste .z-astre { display: none; }
+  .liste .z-heure { grid-area: heure; margin: 0; font-size: 24px; min-width: 70px; text-align: right; }
+  .liste .z-bas { grid-area: bas; margin: 2px 0 0; justify-content: flex-start; }
+  .liste .z-meta { grid-area: meta; flex-direction: column; align-items: flex-end; gap: 2px; }
+  .liste .z-bas .avatars { display: none; }
+  .liste .z-av { grid-area: av; display: flex !important; }
+  .z-av { display: none !important; }
+  .liste .oeil { top: 50%; margin-top: -14px; }
+  .edition.liste .z-heure { visibility: hidden; }
+
+  /* ---------- Mode réduit / horloge seule ---------- */
+  .bandeau { display: none; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .puce { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--ligne); font-size: 12px; cursor: pointer; color: var(--texte); }
+  .puce:hover { background: var(--surface2); }
+  .puce b { font-size: 10.5px; color: var(--gris); font-weight: 650; letter-spacing: .04em; }
+  .puce em { font-style: normal; font-size: 10.5px; color: var(--gris); }
+  .puce i { width: 7px; height: 7px; border-radius: 50%; background: var(--off); }
+  .puce.ok i { background: var(--ok); } .puce.warn i { background: var(--warn); }
+  .puce.lyon b { color: var(--accent); }
+  .puce.agrandir { padding: 5px 7px; color: var(--gris); }
+  .reduit .zones, .reduit .barre-edition, .reduit .h-centre, .reduit .h-date, .reduit .hero .barre, .reduit .h-bas { display: none !important; }
+  .reduit .bandeau { display: flex; }
+  .reduit .hero { padding: 8px 10px 8px 13px; }
+  .reduit .h-compact { display: flex; align-items: baseline; gap: 8px; }
+  .reduit .lieu { display: none; }
+  .h-compact .hc { font-size: 18px; font-weight: 650; }
+  .h-compact .dc { font-size: 11.5px; color: rgba(255,255,255,.78); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  body.mini { padding: 6px; }
+  .mini .hero, .mini .zones, .mini .pied, .mini .barre-edition, .mini .plan { display: none !important; }
+  .mini .bandeau { display: flex; margin-top: 0; }
+
+  /* ---------- Pied ---------- */
+  .pied { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; font-size: 11px; color: var(--gris2); }
+  .synchro.ok { color: #3fae6a; } .synchro.corr { color: #d99a10; }
+
+  /* ---------- Menu ---------- */
+  .menu { position: absolute; right: 0; top: 32px; min-width: 250px; max-height: 75vh; overflow: auto; padding: 6px; border-radius: 12px;
+    background: var(--surface2); color: var(--texte); box-shadow: 0 12px 30px rgba(0,0,0,.45), inset 0 0 0 1px var(--ligne);
+    z-index: 20; display: none; cursor: default; }
+  .menu.ouvert { display: block; }
+  .menu-rang { white-space: nowrap; }
+  .menu > button, .menu-rang { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border-radius: 8px; }
+  .menu > button:hover { background: rgba(127,127,127,.12); }
+  .menu hr { border: 0; border-top: 1px solid var(--ligne); margin: 5px 4px; }
+  .menu .coche { margin-left: auto; color: var(--accent); }
+  .menu .val { margin-left: auto; color: var(--gris); font-size: 12px; }
+  .menu .taille { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+  .menu .taille button { padding: 2px 8px; border-radius: 6px; background: var(--surface); box-shadow: inset 0 0 0 1px var(--ligne); font-weight: 650; }
+  .menu .taille span { min-width: 40px; text-align: center; font-size: 12px; color: var(--gris); }
+
+  /* ---------- Panneau équipe ---------- */
+  .voile { position: fixed; inset: 0; background: rgba(5,6,10,.6); backdrop-filter: blur(3px); display: none; z-index: 30;
+    align-items: flex-end; justify-content: center; }
+  .voile.ouvert { display: flex; }
+  .feuille { width: 100%; max-width: 520px; max-height: 92vh; overflow: auto; background: var(--surface); border-radius: 20px 20px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,.5); animation: monte .22s ease-out; user-select: text; }
+  @keyframes monte { from { transform: translateY(30px); opacity: 0; } }
+  .f-tete { position: sticky; top: 0; z-index: 1; padding: 14px 14px 12px; border-radius: 20px 20px 0 0; }
+  .f-tete .ligne1 { display: flex; justify-content: space-between; align-items: flex-start; }
+  .f-tete h2 { font-size: 17px; font-weight: 650; }
+  .f-tete .info { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; font-size: 12px; color: rgba(255,255,255,.88); }
+  .f-tete .grandeheure { font-size: 26px; font-weight: 650; margin-top: 4px; }
+  .f-corps { padding: 12px 14px 16px; }
+  .f-corps h3 { font-size: 11px; font-weight: 650; letter-spacing: .08em; text-transform: uppercase; color: var(--gris); margin-bottom: 8px; }
+  .f-corps h3.h3-feries { margin-top: 18px; }
+  .personnes { list-style: none; display: grid; gap: 6px; }
+  .personne { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: var(--surface2); }
+  .personne .av { width: 32px; height: 32px; font-size: 12px; margin: 0; box-shadow: none; }
+  .personne .qui { flex: 1; min-width: 0; }
+  .personne .qui b { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .personne .qui span { display: block; font-size: 11.5px; color: var(--gris); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .personne .act { display: flex; gap: 2px; }
+  .personne .act a, .personne .act button { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; color: var(--gris); }
+  .personne .act a:hover, .personne .act button:hover { background: rgba(127,127,127,.14); color: var(--texte); }
+  .vide { color: var(--gris2); font-size: 12px; padding: 6px 2px 2px; }
+  .feries { list-style: none; display: grid; gap: 4px; font-size: 12px; }
+  .feries li { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 9px; background: var(--surface2); }
+  .feries li span:last-child { color: var(--gris); white-space: nowrap; }
+  form { display: grid; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--ligne); }
+  form .rang { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  input { width: 100%; font: inherit; color: var(--texte); background: var(--fond); border: 1px solid var(--ligne); border-radius: 9px;
+    padding: 8px 10px; outline: none; color-scheme: dark; }
+  body.clair input { color-scheme: light; }
+  input[type=date] { width: auto; padding: 5px 8px; }
+  input:focus { border-color: var(--accent); }
+  form .boutons { display: flex; gap: 8px; justify-content: flex-end; }
+  .fermer { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(0,0,0,.25); color: #fff; }
+  .fermer:hover { background: rgba(0,0,0,.4); }
+  .fermer.petit { width: 26px; height: 26px; border-radius: 8px; background: var(--surface2); color: var(--texte); }
+
+  /* ---------- Fenêtre flottante, message ---------- */
+  .flottant { display: grid; justify-items: center; gap: 14px; text-align: center; padding: 60px 20px; color: var(--gris); line-height: 1.5; }
+  .flottant svg { width: 40px; height: 40px; color: var(--accent); }
+  .toast { position: fixed; left: 50%; bottom: 14px; transform: translate(-50%, 20px); opacity: 0; pointer-events: none; z-index: 40;
+    background: var(--surface2); color: var(--texte); padding: 8px 12px; border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.35);
+    font-size: 12px; max-width: 92%; text-align: center; transition: .25s; }
+  .toast.vu { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<div class="flottant" id="flottant" hidden>
+  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1"/></svg>
+  <p>L'horloge est ouverte dans la fenêtre flottante,<br>toujours au premier plan.</p>
+  <button class="btn" id="bRevenir">Revenir dans cette fenêtre</button>
+</div>
+<div id="app">
+
+<section class="hero ciel" id="hero" title="Cliquez pour voir l'équipe de Lyon">
+  <div class="h-haut">
+    <span class="lieu" id="hLieu">Lyon · heure de Paris</span>
+    <div class="h-compact"><span class="hc num" id="hc"></span><span class="dc" id="dc"></span></div>
+    <div class="outils" id="outils">
+      <button class="outil" id="bPlanifier" title="Planifier : convertir une heure, trouver un créneau commun"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h2M14 14h2M8 17h2"/></svg></button>
+      <button class="outil" id="bFlottant" title="Fenêtre flottante, toujours au premier plan" hidden><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11" width="7" height="6" rx="1"/></svg></button>
+      <button class="outil" id="bOrganiser" title="Organiser les cartes"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+      <button class="outil" id="bReduire" title="Réduire / déplier"></button>
+      <button class="outil" id="bMenu" title="Plus d'options"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></button>
+      <div class="menu" id="menu">
+        <button data-act="secondes"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Afficher les secondes<span class="coche" id="cSec">✓</span></button>
+        <button data-act="tri"><svg viewBox="0 0 24 24"><path d="M7 4v16M3 8l4-4 4 4M14 6h7M14 12h5M14 18h3"/></svg>Zones au travail en premier<span class="coche" id="cTri">✓</span></button>
+        <button data-act="liste"><svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Affichage en liste<span class="coche" id="cListe">✓</span></button>
+        <button data-act="mini"><svg viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="6" rx="3"/></svg>Mode horloge seule</button>
+        <button data-act="afficher"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Afficher / masquer des zones</button>
+        <hr>
+        <button data-act="theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>Thème<span class="val" id="vTheme"></span></button>
+        <div class="menu-rang"><svg viewBox="0 0 24 24"><path d="M4 18L9 6l5 12M6 14h6M15 18l3-7 3 7M16 16h4"/></svg>Taille du texte
+          <span class="taille"><button data-act="taille-" data-garder title="Plus petit">A−</button><span id="vTaille"></span><button data-act="taille+" data-garder title="Plus grand">A+</button></span></div>
+        <button data-act="meteo"><svg viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11.6 3.3 3.3 0 0 0 7 18z"/></svg>Météo locale<span class="coche" id="cMeteo">✓</span></button>
+        <button data-act="rappels"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10 21h4"/></svg>Rappels avant ouverture<span class="coche" id="cRappels">✓</span></button>
+        <hr>
+        <button data-act="partager"><svg viewBox="0 0 24 24"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Copier un lien de partage</button>
+        <button data-act="exporter"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Exporter dans un fichier</button>
+        <button data-act="importer"><svg viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M5 21h14"/></svg>Importer un fichier…</button>
+        <hr>
+        <button data-act="reinit"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>Réinitialiser la disposition</button>
+      </div>
+    </div>
+  </div>
+  <div class="h-centre">
+    <div class="h-heure num" id="hHeure"></div>
+    <div class="h-droite"><span class="pill" id="hSem"></span><span class="h-meteo" id="hMeteo"></span></div>
+  </div>
+  <div class="h-date" id="hDate"></div>
+  <div class="barre"><i class="bande"></i><i class="curseur" id="hCurseur"></i></div>
+  <div class="h-bas"><span class="statut" id="hStatut"><i></i><span></span></span><span class="avatars" id="hAv"></span></div>
+</section>
+
+<section class="plan" id="plan" hidden>
+  <div class="pl-tete">
+    <div><b>Planifier</b> <span class="pl-sous">· glissez sur la frise, les cartes suivent</span></div>
+    <button class="fermer petit" id="planFermer" title="Revenir à l'heure actuelle"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="pl-ligne">
+    <input type="date" id="planDate" aria-label="Date à Lyon">
+    <span class="pl-heure num" id="planHeure"></span><span class="pl-lyon">à Lyon</span>
+    <button class="btn sec petit" id="planMaintenant">Maintenant</button>
+  </div>
+  <div class="pl-frise">
+    <div class="pl-cases" id="planCases"></div>
+    <i class="pl-trait" id="planTrait"></i>
+    <input type="range" id="planCurseur" min="0" max="1425" step="15" aria-label="Heure à Lyon">
+  </div>
+  <div class="pl-graduations"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div>
+  <div class="pl-zones" id="planZones"></div>
+  <p class="pl-resume" id="planResume"></p>
+</section>
+
+<div class="barre-edition">
+  <span>Glissez les cartes pour les déplacer · <svg viewBox="0 0 24 24" style="width:13px;height:13px;vertical-align:-2px"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg> pour masquer</span>
+  <button class="btn" id="bTermine">Terminé</button>
+</div>
+
+<main class="zones" id="zones"></main>
+<div class="bandeau" id="bandeau"></div>
+
+<footer class="pied">
+  <span class="synchro" id="synchro">Heure du PC</span>
+  <span id="aide">Cliquez sur une zone pour gérer l'équipe</span>
+</footer>
+
+<input type="file" id="fichier" accept="application/json,.json" hidden>
+<div class="toast" id="toast" role="status"></div>
+
+<div class="voile" id="voile">
+  <div class="feuille" role="dialog" aria-modal="true" aria-labelledby="pNom">
+    <div class="f-tete ciel" id="pTete">
+      <div class="ligne1">
+        <div><h2 id="pNom"></h2><div class="grandeheure num" id="pHeure"></div></div>
+        <button class="fermer" id="pFermer" title="Fermer (Échap)"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </div>
+      <div class="info"><span class="statut" id="pStatut"><i></i><span></span></span><span id="pEcart"></span><span id="pMeteo" class="h-meteo"></span></div>
+    </div>
+    <div class="f-corps">
+      <h3 id="pTitreListe">Équipe</h3>
+      <ul class="personnes" id="pListe"></ul>
+      <p class="vide" id="pVide">Personne pour l'instant. Ajoutez un membre ci-dessous.</p>
+      <form id="pForm" autocomplete="off">
+        <div class="rang">
+          <input id="fNom" placeholder="Nom *" required maxlength="60">
+          <input id="fRole" placeholder="Rôle / poste" maxlength="60">
+        </div>
+        <input id="fContact" placeholder="E-mail ou téléphone (facultatif)" maxlength="80">
+        <div class="boutons">
+          <button type="button" class="btn sec" id="fAnnuler" hidden>Annuler</button>
+          <button type="submit" class="btn" id="fValider">Ajouter</button>
+        </div>
+      </form>
+      <h3 class="h3-feries">Prochains jours fériés</h3>
+      <ul class="feries" id="pFeries"></ul>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+"use strict";
+// ======================================================================== Données
+const ZONES = [
+  { id: "nc", code: "NC", nom: "Nouvelle-Calédonie", ville: "Nouméa",         tz: "Pacific/Noumea",     lat: -22.27, lon: 166.45 },
+  { id: "re", code: "RE", nom: "La Réunion",         ville: "Saint-Denis",    tz: "Indian/Reunion",     lat: -20.88, lon: 55.45 },
+  { id: "yt", code: "YT", nom: "Mayotte",            ville: "Mamoudzou",      tz: "Indian/Mayotte",     lat: -12.78, lon: 45.23 },
+  { id: "gf", code: "GF", nom: "Guyane",             ville: "Cayenne",        tz: "America/Cayenne",    lat: 4.94,   lon: -52.33 },
+  { id: "gp", code: "GP", nom: "Guadeloupe",         ville: "Pointe-à-Pitre", tz: "America/Guadeloupe", lat: 16.24,  lon: -61.53 },
+  { id: "mq", code: "MQ", nom: "Martinique",         ville: "Fort-de-France", tz: "America/Martinique", lat: 14.6,   lon: -61.07 },
+  { id: "pf", code: "PF", nom: "Polynésie",          ville: "Papeete",        tz: "Pacific/Tahiti",     lat: -17.54, lon: -149.57 },
+  { id: "pm", code: "PM", nom: "Saint-Pierre-et-Miquelon", ville: "Saint-Pierre", tz: "America/Miquelon", lat: 46.78, lon: -56.18 },
+  { id: "wf", code: "WF", nom: "Wallis-et-Futuna",   ville: "Mata-Utu",       tz: "Pacific/Wallis",     lat: -13.28, lon: -176.17 },
+];
+const LYON = { id: "lyon", code: "LY", nom: "Lyon", ville: "Heure de Paris", tz: "Europe/Paris", lat: 45.76, lon: 4.84 };
+const PAR_ID = Object.fromEntries([LYON, ...ZONES].map(z => [z.id, z]));
+
+// Horaires de bureau (heure locale de chaque zone) et rappel
+const OUVERTURE = 8, FERMETURE = 18, RAPPEL_MIN = 15;
+
+// Jours fériés : nationaux (partout) + locaux. À compléter / vérifier si besoin.
+const FERIES_NATIONAUX = [["01-01", "Jour de l'an"], ["05-01", "Fête du Travail"], ["05-08", "Victoire 1945"], ["07-14", "Fête nationale"],
+  ["08-15", "Assomption"], ["11-01", "Toussaint"], ["11-11", "Armistice 1918"], ["12-25", "Noël"]];
+const FERIES_MOBILES = [[1, "Lundi de Pâques"], [39, "Ascension"], [50, "Lundi de Pentecôte"]]; // jours après Pâques
+const FERIES_LOCAUX = {
+  gp: [["05-27", "Abolition de l'esclavage"], ["07-21", "Fête Victor Schœlcher"]],
+  mq: [["05-22", "Abolition de l'esclavage"], ["07-21", "Fête Victor Schœlcher"]],
+  gf: [["06-10", "Abolition de l'esclavage"]],
+  re: [["12-20", "Abolition de l'esclavage"]],
+  yt: [["04-27", "Abolition de l'esclavage"]],
+  nc: [["09-24", "Fête de la citoyenneté"]],
+  pf: [["03-05", "Arrivée de l'Évangile"], ["06-29", "Fête de l'autonomie"]],
+  wf: [["04-28", "Saint Pierre Chanel"], ["07-29", "Fête du Territoire"]],
+};
+const FERIES_LOCAUX_MOBILES = { pf: [[-2, "Vendredi saint"]] };
+
+const CLE = "horloge-outremer.v2";
+const DEFAUT = () => ({ ordre: ZONES.map(z => z.id), masquees: ["pm", "wf"], disposition: "grille", vue: "complet",
+  secondes: true, tri: "manuel", theme: "sombre", taille: 1, meteo: true, rappels: false, planZones: null, equipe: {} });
+const TAILLES = [0.85, 1, 1.15, 1.3];
+
+let etat = charger();
+let edition = false;
+
+function normaliser(s) {
+  s = s && typeof s === "object" ? s : {};
+  const e = Object.assign(DEFAUT(), s);
+  const ids = ZONES.map(z => z.id);
+  e.ordre = (Array.isArray(e.ordre) ? e.ordre : []).filter(i => ids.includes(i));
+  ids.forEach(i => { if (!e.ordre.includes(i)) e.ordre.push(i); });
+  e.masquees = (Array.isArray(e.masquees) ? e.masquees : []).filter(i => ids.includes(i));
+  e.disposition = e.disposition === "liste" ? "liste" : "grille";
+  if (!s.vue && typeof s.reduit === "boolean") e.vue = s.reduit ? "reduit" : "complet"; // ancienne version
+  delete e.reduit;
+  e.vue = ["complet", "reduit", "mini"].includes(e.vue) ? e.vue : "complet";
+  e.tri = e.tri === "actif" ? "actif" : "manuel";
+  e.theme = ["sombre", "clair", "auto"].includes(e.theme) ? e.theme : "sombre";
+  e.taille = TAILLES.includes(e.taille) ? e.taille : 1;
+  e.meteo = e.meteo !== false; e.rappels = e.rappels === true; e.secondes = e.secondes !== false;
+  e.planZones = Array.isArray(e.planZones) ? e.planZones.filter(i => PAR_ID[i]) : null;
+  const eq = {};
+  if (e.equipe && typeof e.equipe === "object")
+    for (const id in e.equipe) if (PAR_ID[id] && Array.isArray(e.equipe[id]))
+      eq[id] = e.equipe[id].filter(p => p && typeof p.nom === "string" && p.nom.trim())
+        .map(p => ({ nom: String(p.nom).slice(0, 60), role: String(p.role || "").slice(0, 60), contact: String(p.contact || "").slice(0, 80) }));
+  e.equipe = eq;
+  return e;
+}
+function charger() { try { return normaliser(JSON.parse(localStorage.getItem(CLE))); } catch (e) { return normaliser(null); } }
+function sauver() { try { localStorage.setItem(CLE, JSON.stringify(etat)); } catch (e) {} }
+
+// ======================================================================== Heure (corrigée par le serveur)
+let decalage = 0; // ms à ajouter à l'horloge du PC
+const maintenant = () => new Date(Date.now() + decalage);
+
+async function synchroniser() {
+  const el = $("synchro");
+  if (location.protocol !== "http:" && location.protocol !== "https:") { el.textContent = "Heure du PC"; return; }
+  try {
+    const t0 = Date.now();
+    const r = await fetch(location.pathname + "?synchro=" + t0, { method: "HEAD", cache: "no-store" });
+    const t1 = Date.now();
+    const d = r.headers.get("Date");
+    if (!d) throw new Error("pas d'en-tête Date");
+    // L'en-tête Date est à la seconde près : on vise le milieu de la seconde et le milieu de l'aller-retour.
+    const ecart = (Date.parse(d) + 500) - (t0 + t1) / 2;
+    decalage = Math.abs(ecart) > 1500 ? ecart : 0;
+    if (decalage) {
+      el.className = "synchro corr";
+      el.textContent = "⟳ Horloge du PC corrigée (" + (ecart > 0 ? "+" : "−") + fmtDuree(Math.abs(ecart)) + ")";
+    } else {
+      el.className = "synchro ok";
+      el.textContent = "✓ Heure synchronisée";
+    }
+    el.title = "Dernière synchronisation : " + new Date().toLocaleTimeString("fr-FR");
+  } catch (e) {
+    el.className = "synchro";
+    el.textContent = "Heure du PC (hors ligne)";
+  }
+}
+function fmtDuree(ms) { const s = Math.round(ms / 1000); return s < 120 ? s + " s" : Math.round(s / 60) + " min"; }
+
+const cacheFmt = {};
+function mur(tz, now) { // Date « murale » : ses champs UTC = heure locale du fuseau
+  const f = cacheFmt[tz] || (cacheFmt[tz] = new Intl.DateTimeFormat("en-US", { timeZone: tz, hourCycle: "h23",
+    year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" }));
+  const p = {};
+  f.formatToParts(now).forEach(x => p[x.type] = +x.value);
+  return new Date(Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second));
+}
+function instantLyon(dateStr, minutes) { // heure murale de Lyon -> instant réel
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const cible = Date.UTC(y, m - 1, d, 0, minutes);
+  let t = cible;
+  for (let k = 0; k < 2; k++) t -= mur(LYON.tz, new Date(t)).getTime() - cible;
+  return new Date(t);
+}
+const deux = n => String(n).padStart(2, "0");
+const hm = d => deux(d.getUTCHours()) + ":" + deux(d.getUTCMinutes());
+const hmMin = m => deux(Math.floor(m / 60)) + ":" + deux(m % 60);
+const cleJour = d => d.getUTCFullYear() + "-" + deux(d.getUTCMonth() + 1) + "-" + deux(d.getUTCDate());
+function semaineIso(d) {
+  const j = (d.getUTCDay() + 6) % 7;
+  const jeudi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 3 - j));
+  return Math.floor((jeudi - Date.UTC(jeudi.getUTCFullYear(), 0, 1)) / 864e5 / 7) + 1;
+}
+const fmtDate  = new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", weekday: "long", day: "numeric", month: "long", year: "numeric" });
+const fmtJour  = new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", weekday: "short" });
+const fmtCourt = new Intl.DateTimeFormat("fr-FR", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" });
+
+// ======================================================================== Jours fériés
+function paques(an) { // algorithme de Meeus / Jones / Butcher
+  const a = an % 19, b = Math.floor(an / 100), c = an % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+    g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+    l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451),
+    mois = Math.floor((h + l - 7 * m + 114) / 31), jour = ((h + l - 7 * m + 114) % 31) + 1;
+  return Date.UTC(an, mois - 1, jour);
+}
+const cacheFeries = {};
+function feriesAnnee(id, an) {
+  const k = id + an;
+  if (cacheFeries[k]) return cacheFeries[k];
+  const m = new Map(), p = paques(an);
+  const fixe = (mmjj, nom) => { const [mo, jo] = mmjj.split("-").map(Number); m.set(cleJour(new Date(Date.UTC(an, mo - 1, jo))), nom); };
+  const mobile = (dj, nom) => m.set(cleJour(new Date(p + dj * 864e5)), nom);
+  FERIES_NATIONAUX.forEach(([d, n]) => fixe(d, n));
+  FERIES_MOBILES.forEach(([d, n]) => mobile(d, n));
+  (FERIES_LOCAUX[id] || []).forEach(([d, n]) => fixe(d, n));
+  (FERIES_LOCAUX_MOBILES[id] || []).forEach(([d, n]) => mobile(d, n));
+  return cacheFeries[k] = m;
+}
+function ferie(id, d) { return feriesAnnee(id, d.getUTCFullYear()).get(cleJour(d)) || null; }
+function prochainsFeries(id, d, n, maxJours = 400, locauxSeulement = false) {
+  const res = [];
+  for (let k = 1; k <= maxJours && res.length < n; k++) {
+    const x = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + k));
+    const f = ferie(id, x);
+    // « locaux seulement » : Lyon travaille ce jour-là et ce n'est pas un week-end
+    if (f && !(locauxSeulement && (ferie("lyon", x) || x.getUTCDay() === 0 || x.getUTCDay() === 6))) res.push({ date: x, nom: f, dans: k });
+  }
+  return res;
+}
+
+// ======================================================================== Statut, ciel, météo
+function statut(d, id) {
+  const j = d.getUTCDay(), h = d.getUTCHours();
+  if (j === 0 || j === 6) return { cls: "", txt: "Week-end" };
+  const f = ferie(id, d);
+  if (f) return { cls: "", txt: "Férié", detail: f };
+  if (h >= OUVERTURE && h < FERMETURE) return { cls: "ok", txt: "Au bureau" };
+  if (h === OUVERTURE - 1) return { cls: "warn", txt: "Début de journée" };
+  if (h === FERMETURE) return { cls: "warn", txt: "Fin de journée" };
+  return { cls: "", txt: "Hors horaires" };
+}
+function ciel(h) { // dégradé selon l'heure locale (h décimale)
+  if (h < 5.5 || h >= 20)  return ["#1f2a52", "#0f1430"];  // nuit
+  if (h < 7.5)             return ["#9a5a54", "#3a2c5c"];  // aube
+  if (h < 17)              return ["#3f8fd0", "#1d5a92"];  // jour
+  if (h < 18.5)            return ["#d08048", "#7a3f5e"];  // fin d'après-midi
+  return ["#6a3f78", "#2a2552"];                           // crépuscule
+}
+const S = p => '<svg viewBox="0 0 24 24">' + p + "</svg>";
+const SOLEIL = S('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>');
+const LUNE   = S('<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>');
+const OEIL   = S('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>');
+const OEIL_B = S('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><path d="M3 3l18 18"/>');
+const NUAGE_BAS  = '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11.6 3.3 3.3 0 0 0 7 18z"/>';
+const NUAGE_HAUT = '<path d="M7 13h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 6.6 3.3 3.3 0 0 0 7 13z"/>';
+function iconeMeteo(code, jour) {
+  if (code <= 1) return { svg: jour ? SOLEIL : LUNE, lib: jour ? "Ensoleillé" : "Ciel dégagé" };
+  if (code === 2) return { svg: S(NUAGE_BAS + '<path d="M16 4.5V3M19.5 6l1-1M21 9.5h1.5"/>'), lib: "Éclaircies" };
+  if (code === 3) return { svg: S(NUAGE_BAS), lib: "Couvert" };
+  if (code === 45 || code === 48) return { svg: S('<path d="M4 9h16M4 13h16M6 17h12"/>'), lib: "Brouillard" };
+  if (code >= 95) return { svg: S(NUAGE_HAUT + '<path d="M12 14l-2 4h3l-2 4"/>'), lib: "Orage" };
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return { svg: S(NUAGE_HAUT + '<path d="M8 18h.01M12 20h.01M16 18h.01"/>'), lib: "Neige" };
+  if (code >= 51 && code <= 57) return { svg: S(NUAGE_HAUT + '<path d="M9 17v1M13 17v1M17 17v1"/>'), lib: "Bruine" };
+  if (code >= 80) return { svg: S(NUAGE_HAUT + '<path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/>'), lib: "Averses" };
+  return { svg: S(NUAGE_HAUT + '<path d="M8 17l-1 3M12 17l-1 3M16 17l-1 3"/>'), lib: "Pluie" };
+}
+
+let meteo = {}, meteoTs = 0, meteoEnCours = false;
+const CLE_METEO = "horloge-outremer.meteo";
+try { const c = JSON.parse(localStorage.getItem(CLE_METEO)); if (c && Date.now() - c.ts < 60 * 60e3) { meteo = c.data || {}; meteoTs = c.ts; } } catch (e) {}
+async function chargerMeteo() { // Open-Meteo : gratuit, sans clé, seules les coordonnées des villes sont envoyées
+  if (meteoEnCours) return;
+  meteoEnCours = true; meteoTs = Date.now();
+  try {
+    const lieux = [LYON, ...ZONES];
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lieux.map(z => z.lat).join(",") +
+      "&longitude=" + lieux.map(z => z.lon).join(",") + "&current=temperature_2m,weather_code,wind_gusts_10m,is_day&timezone=GMT";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(r.status);
+    let j = await r.json();
+    if (!Array.isArray(j)) j = [j];
+    const m = {};
+    j.forEach((x, i) => {
+      const c = x && x.current;
+      if (c) m[lieux[i].id] = { t: Math.round(c.temperature_2m), code: c.weather_code, raf: Math.round(c.wind_gusts_10m), jour: c.is_day === 1 };
+    });
+    meteo = m;
+    try { localStorage.setItem(CLE_METEO, JSON.stringify({ ts: Date.now(), data: m })); } catch (e) {}
+    tic();
+  } catch (e) {
+    meteoTs = Date.now() - 25 * 60e3; // nouvel essai dans 5 min
+  } finally { meteoEnCours = false; }
+}
+function htmlMeteo(id, astre) { // icône + température (ou soleil/lune si pas de météo)
+  const m = etat.meteo && meteo[id];
+  if (!m) return { html: astre, titre: "" };
+  const ic = iconeMeteo(m.code, m.jour);
+  return { html: ic.svg + "<span>" + m.t + "°</span>", titre: ic.lib + " · " + m.t + " °C · rafales " + m.raf + " km/h" };
+}
+function badgeVent(id) {
+  const m = etat.meteo && meteo[id];
+  if (!m || m.raf < 60) return null;
+  return { txt: "Rafales " + m.raf + " km/h", cls: m.raf >= 90 ? "badge danger" : "badge" };
+}
+
+function infos(z, now, lyon) {
+  const loc = mur(z.tz, now);
+  const h = loc.getUTCHours() + loc.getUTCMinutes() / 60;
+  const diffH = Math.round((loc - lyon) / 6e4) / 60;
+  const jours = Math.round((Date.UTC(loc.getUTCFullYear(), loc.getUTCMonth(), loc.getUTCDate()) -
+                            Date.UTC(lyon.getUTCFullYear(), lyon.getUTCMonth(), lyon.getUTCDate())) / 864e5);
+  const ecart = diffH === 0 ? "même heure" : (diffH > 0 ? "+" : "−") + String(Math.abs(diffH)).replace(".", ",") + " h";
+  return { loc, h, ecart, jours, st: statut(loc, z.id), ciel: ciel(h), astre: (h >= 6.5 && h < 18.5) ? SOLEIL : LUNE,
+           bientot: z.id === "lyon" ? null : prochainsFeries(z.id, loc, 1, 7, true)[0] };
+}
+function appliquerCiel(el, c) { el.style.setProperty("--c1", c[0]); el.style.setProperty("--c2", c[1]); }
+function majStatut(el, st) { el.className = "statut " + st.cls; el.lastElementChild.textContent = st.txt; el.title = st.detail || ""; }
+function majHtml(el, html) { if (el.dataset.v !== html) { el.innerHTML = html; el.dataset.v = html; } }
+
+// ======================================================================== Avatars
+const COULEURS = ["#e76f51", "#2a9d8f", "#8e7dbe", "#e9a03b", "#3d8bd9", "#d6517d", "#4caf7a", "#b5793a"];
+function initiales(nom) {
+  const m = nom.trim().split(/[\s-]+/).filter(Boolean);
+  return ((m[0] || "?")[0] + (m.length > 1 ? m[m.length - 1][0] : (m[0] || "")[1] || "")).toUpperCase();
+}
+function couleur(nom) { let h = 0; for (const c of nom) h = (h * 31 + c.charCodeAt(0)) >>> 0; return COULEURS[h % COULEURS.length]; }
+function avatar(p) {
+  const a = document.createElement("span");
+  a.className = "av"; a.textContent = initiales(p.nom); a.style.background = couleur(p.nom); a.title = p.nom + (p.role ? " · " + p.role : "");
+  return a;
+}
+function remplirAvatars(el, id, max = 4) {
+  el.replaceChildren();
+  const liste = etat.equipe[id] || [];
+  liste.slice(0, liste.length > max ? max - 1 : max).forEach(p => el.appendChild(avatar(p)));
+  if (liste.length > max) {
+    const plus = document.createElement("span");
+    plus.className = "av plus"; plus.textContent = "+" + (liste.length - max + 1);
+    plus.title = liste.slice(max - 1).map(p => p.nom).join(", ");
+    el.appendChild(plus);
+  }
+}
+
+// ======================================================================== Rendu
+// L'interface (#app) peut être déplacée dans la fenêtre flottante : on la cible toujours via #app.
+const app = document.getElementById("app");
+const $ = id => app.querySelector("#" + id);
+const vue = () => app.ownerDocument.defaultView;   // fenêtre qui affiche l'interface
+const corps = () => app.ownerDocument.body;
+const zonesEl = $("zones"), bandeauEl = $("bandeau");
+let refs = {}, puceLyon = null;
+let simu = null; // planification : { date: "AAAA-MM-JJ", min: minutes à Lyon }
+
+const clairDemande = () => etat.theme === "clair" || (etat.theme === "auto" && matchMedia("(prefers-color-scheme: light)").matches);
+
+function rendre() {
+  const b = corps();
+  b.classList.toggle("liste", etat.disposition === "liste");
+  b.classList.toggle("reduit", etat.vue === "reduit");
+  b.classList.toggle("mini", etat.vue === "mini");
+  b.classList.toggle("edition", edition);
+  b.classList.toggle("simu", !!simu);
+  b.classList.toggle("clair", clairDemande());
+  app.style.zoom = etat.taille;
+
+  const coche = (id, v) => { $(id).style.visibility = v ? "visible" : "hidden"; };
+  coche("cSec", etat.secondes); coche("cTri", etat.tri === "actif"); coche("cListe", etat.disposition === "liste");
+  coche("cMeteo", etat.meteo); coche("cRappels", etat.rappels);
+  $("vTheme").textContent = { sombre: "Sombre", clair: "Clair", auto: "Auto (Windows)" }[etat.theme];
+  $("vTaille").textContent = Math.round(etat.taille * 100) + " %";
+  $("bFlottant").classList.toggle("actif", !!pip);
+  $("bOrganiser").classList.toggle("actif", edition);
+  $("bPlanifier").classList.toggle("actif", !!simu);
+  $("bReduire").innerHTML = etat.vue !== "complet" ? S('<path d="M6 9l6 6 6-6"/>') : S('<path d="M6 15l6-6 6 6"/>');
+  $("aide").textContent = edition ? "" : simu ? "Simulation : les cartes montrent l'heure choisie" : "Cliquez sur une zone pour gérer l'équipe";
+  $("hLieu").textContent = simu ? "Lyon · simulation" : "Lyon · heure de Paris";
+  $("plan").hidden = !simu;
+  remplirAvatars($("hAv"), "lyon", 6);
+
+  refs = {};
+  zonesEl.replaceChildren();
+  bandeauEl.replaceChildren();
+  puceLyon = null;
+  if (etat.vue === "mini") {
+    puceLyon = document.createElement("button");
+    puceLyon.className = "puce lyon"; puceLyon.title = "Lyon · cliquez pour l'équipe";
+    puceLyon.innerHTML = "<b>Lyon</b><span class='num'></span><em></em>";
+    puceLyon.addEventListener("click", () => ouvrirPanneau("lyon"));
+    bandeauEl.appendChild(puceLyon);
+  }
+  const ordre = ordreAffiche();
+  signatureTri = ordre.join();
+  for (const id of ordre) {
+    const z = PAR_ID[id], cachee = etat.masquees.includes(id);
+    if (cachee && !edition) continue;
+
+    const c = document.createElement("article");
+    c.className = "zone ciel" + (cachee ? " masquee" : "");
+    c.dataset.id = id;
+    c.draggable = edition || (etat.tri !== "actif" && !simu);
+    c.innerHTML =
+      '<button class="oeil" title="' + (cachee ? "Afficher" : "Masquer") + ' cette zone">' + (cachee ? OEIL_B : OEIL) + '</button>' +
+      '<div class="z-haut"><div><div class="z-nom"></div><div class="z-ville"></div></div><span class="z-astre"></span></div>' +
+      '<div class="z-heure num"></div>' +
+      '<div class="z-meta"><span class="ecart"></span><span class="jour" hidden></span><span class="badge b-ferie" hidden></span><span class="badge b-vent" hidden></span></div>' +
+      '<div class="barre"><i class="bande"></i><i class="curseur"></i></div>' +
+      '<div class="z-bas"><span class="statut"><i></i><span></span></span><span class="avatars"></span></div>' +
+      '<span class="avatars z-av"></span>';
+    c.querySelector(".z-nom").textContent = z.nom;
+    c.querySelector(".z-ville").textContent = z.ville;
+    remplirAvatars(c.querySelector(".z-bas .avatars"), id, 4);
+    remplirAvatars(c.querySelector(".z-av"), id, 4);
+
+    c.querySelector(".oeil").addEventListener("click", ev => {
+      ev.stopPropagation();
+      etat.masquees = cachee ? etat.masquees.filter(x => x !== id) : etat.masquees.concat(id);
+      sauver(); rendre();
+    });
+    c.addEventListener("click", () => { if (!edition) ouvrirPanneau(id); });
+    c.addEventListener("dragstart", ev => {
+      c.classList.add("glisse");
+      ev.dataTransfer.effectAllowed = "move";
+      ev.dataTransfer.setData("text/plain", id);
+    });
+    c.addEventListener("dragend", () => { c.classList.remove("glisse"); enregistrerOrdre(); });
+    zonesEl.appendChild(c);
+
+    refs[id] = { carte: c, heure: c.querySelector(".z-heure"), astre: c.querySelector(".z-astre"),
+      statut: c.querySelector(".statut"), ecart: c.querySelector(".ecart"), jour: c.querySelector(".jour"),
+      ferie: c.querySelector(".b-ferie"), vent: c.querySelector(".b-vent"), curseur: c.querySelector(".curseur") };
+
+    if (!cachee) {
+      const p = document.createElement("button");
+      p.className = "puce"; p.title = z.nom;
+      p.innerHTML = "<i></i><b></b><span class='num'></span>";
+      p.querySelector("b").textContent = z.code;
+      p.addEventListener("click", () => ouvrirPanneau(id));
+      bandeauEl.appendChild(p);
+      refs[id].puce = p;
+    }
+  }
+  if (etat.vue === "mini") {
+    const g = document.createElement("button");
+    g.className = "puce agrandir"; g.title = "Revenir à l'affichage complet";
+    g.innerHTML = S('<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>');
+    g.addEventListener("click", () => changerVue("complet"));
+    bandeauEl.appendChild(g);
+  }
+  if (simu) calculerPlan();
+  tic();
+}
+
+// Tri « zones au travail en premier » : au bureau, puis début/fin de journée, puis le reste (ordre manuel conservé dans chaque groupe)
+let signatureTri = "";
+function ordreAffiche() {
+  if (etat.tri !== "actif" || edition || simu) return etat.ordre.slice();
+  const now = maintenant(), rang = { ok: 0, warn: 1, "": 2 };
+  return etat.ordre
+    .map((id, i) => ({ id, i, r: rang[statut(mur(PAR_ID[id].tz, now), id).cls] }))
+    .sort((a, b) => a.r - b.r || a.i - b.i)
+    .map(x => x.id);
+}
+
+// Glisser-déposer
+zonesEl.addEventListener("dragover", ev => {
+  const enCours = zonesEl.querySelector(".glisse");
+  if (!enCours) return;
+  ev.preventDefault();
+  const cible = ev.target.closest(".zone");
+  if (!cible || cible === enCours) return;
+  const r = cible.getBoundingClientRect();
+  const apres = etat.disposition === "liste" ? ev.clientY > r.top + r.height / 2
+              : (ev.clientY > r.bottom - 4 ? true : ev.clientY < r.top + 4 ? false : ev.clientX > r.left + r.width / 2);
+  zonesEl.insertBefore(enCours, apres ? cible.nextSibling : cible);
+});
+zonesEl.addEventListener("drop", ev => ev.preventDefault());
+function enregistrerOrdre() {
+  const vis = [...zonesEl.querySelectorAll(".zone")].map(c => c.dataset.id);
+  let k = 0;
+  etat.ordre = etat.ordre.map(id => vis.includes(id) ? vis[k++] : id);
+  sauver();
+  rendre();
+}
+
+// ======================================================================== Tic (chaque seconde)
+let derniereSynchro = 0;
+function tic() {
+  if (etat.tri === "actif" && !edition && !simu && ordreAffiche().join() !== signatureTri) { rendre(); return; }
+  const reel = maintenant();
+  const now = simu ? instantLyon(simu.date, simu.min) : reel;
+  const lyon = mur(LYON.tz, now);
+  const sem = semaineIso(lyon);
+  const iL = infos(LYON, now, lyon);
+  const sec = etat.secondes && !simu;
+
+  appliquerCiel($("hero"), iL.ciel);
+  $("hHeure").innerHTML = hm(lyon) + (sec ? '<span class="sec">:' + deux(lyon.getUTCSeconds()) + "</span>" : "");
+  $("hSem").textContent = "Semaine " + sem;
+  const d = fmtDate.format(lyon);
+  $("hDate").textContent = d.charAt(0).toUpperCase() + d.slice(1);
+  $("hCurseur").style.left = (iL.h / 24 * 100) + "%";
+  majStatut($("hStatut"), iL.st);
+  const mL = htmlMeteo("lyon", "");
+  majHtml($("hMeteo"), mL.html); $("hMeteo").title = mL.titre;
+  $("hc").textContent = hm(lyon) + (sec ? ":" + deux(lyon.getUTCSeconds()) : "");
+  $("dc").textContent = fmtCourt.format(lyon) + " · S" + sem;
+  if (!simu) document.title = hm(lyon) + " Lyon · S" + sem;
+  if (puceLyon) {
+    puceLyon.querySelector("span").textContent = hm(lyon);
+    puceLyon.querySelector("em").textContent = "S" + sem;
+  }
+
+  for (const id in refs) {
+    const r = refs[id], i = infos(PAR_ID[id], now, lyon);
+    appliquerCiel(r.carte, i.ciel);
+    r.heure.textContent = hm(i.loc);
+    const m = htmlMeteo(id, i.astre);
+    majHtml(r.astre, m.html); r.astre.title = m.titre;
+    majStatut(r.statut, i.st);
+    r.ecart.textContent = i.ecart;
+    r.jour.hidden = i.jours === 0;
+    r.jour.textContent = i.jours === 0 ? "" : (i.jours > 0 ? "demain · " : "hier · ") + fmtJour.format(i.loc);
+    // Jour férié : aujourd'hui (nom) ou dans les 7 jours (rappel)
+    if (i.st.detail) { r.ferie.hidden = false; r.ferie.textContent = i.st.detail; r.ferie.title = "Férié aujourd'hui"; }
+    else if (i.bientot) {
+      r.ferie.hidden = false;
+      r.ferie.textContent = "Férié " + (i.bientot.dans === 1 ? "demain" : "dans " + i.bientot.dans + " j");
+      r.ferie.title = i.bientot.nom + " · " + fmtCourt.format(i.bientot.date);
+    } else r.ferie.hidden = true;
+    const v = badgeVent(id);
+    r.vent.hidden = !v;
+    if (v) { r.vent.textContent = v.txt; r.vent.className = v.cls + " b-vent"; }
+    r.curseur.style.left = (i.h / 24 * 100) + "%";
+    if (r.puce) {
+      r.puce.className = "puce " + i.st.cls;
+      r.puce.querySelector("span").textContent = hm(i.loc);
+      r.puce.title = PAR_ID[id].nom + " · " + i.st.txt + (i.st.detail ? " (" + i.st.detail + ")" : "") + " · " + i.ecart;
+    }
+  }
+  if (panneauId) majTetePanneau(reel);
+
+  verifierRappels(reel);
+  if (Date.now() - derniereSynchro > 15 * 60e3) { derniereSynchro = Date.now(); synchroniser(); }
+  if (etat.meteo && Date.now() - meteoTs > 30 * 60e3) chargerMeteo();
+}
+function planifier() { // aligné sur le changement de seconde
+  tic();
+  setTimeout(planifier, 1000 - (maintenant().getTime() % 1000) + 15);
+}
+
+// ======================================================================== Planifier : convertisseur + créneau commun
+function ouvrirPlan() {
+  if (simu) { fermerPlan(); return; }
+  const l = mur(LYON.tz, maintenant());
+  simu = { date: cleJour(l), min: Math.min(1425, Math.ceil((l.getUTCHours() * 60 + l.getUTCMinutes()) / 15) * 15) };
+  edition = false;
+  $("planDate").value = simu.date;
+  $("planCurseur").value = simu.min;
+  if (etat.vue !== "complet") changerVue("complet"); else rendre();
+}
+function fermerPlan() { simu = null; rendre(); }
+function zonesPlan() {
+  const vis = ["lyon", ...etat.ordre.filter(id => !etat.masquees.includes(id))];
+  const sel = etat.planZones ? vis.filter(id => etat.planZones.includes(id)) : vis;
+  return { vis, sel };
+}
+function calculerPlan() {
+  const { vis, sel } = zonesPlan();
+  const cz = $("planZones");
+  cz.replaceChildren();
+  vis.forEach(id => {
+    const b = document.createElement("button");
+    b.className = "chip" + (sel.includes(id) ? " on" : "");
+    b.textContent = id === "lyon" ? "Lyon" : PAR_ID[id].code;
+    b.title = PAR_ID[id].nom;
+    b.onclick = () => {
+      const s = new Set(sel);
+      s.has(id) ? s.delete(id) : s.add(id);
+      etat.planZones = vis.filter(x => s.has(x));
+      sauver(); calculerPlan();
+    };
+    cz.appendChild(b);
+  });
+
+  const cases = $("planCases");
+  cases.replaceChildren();
+  const comptes = [];
+  for (let s = 0; s < 96; s++) {
+    const inst = instantLyon(simu.date, s * 15);
+    const absents = sel.filter(id => statut(mur(PAR_ID[id].tz, inst), id).cls !== "ok");
+    const n = sel.length - absents.length;
+    comptes.push({ n, absents });
+    const c = document.createElement("i");
+    const frac = sel.length ? n / sel.length : 0;
+    c.style.background = sel.length && frac === 1 ? "var(--ok)" : frac ? "rgba(108,178,255," + (0.15 + frac * 0.55).toFixed(2) + ")" : "transparent";
+    c.title = hmMin(s * 15) + " à Lyon : " + n + "/" + sel.length + " au bureau" +
+      (absents.length ? " · absents : " + absents.map(id => id === "lyon" ? "Lyon" : PAR_ID[id].code).join(", ") : "");
+    cases.appendChild(c);
+  }
+  const max = Math.max(0, ...comptes.map(c => c.n));
+  const plages = [];
+  let debut = -1;
+  for (let s = 0; s <= 96; s++) {
+    const bon = s < 96 && max > 0 && comptes[s].n === max;
+    if (bon && debut < 0) debut = s;
+    if (!bon && debut >= 0) { plages.push([debut, s]); debut = -1; }
+  }
+  const txt = plages.map(([a, b]) => hmMin(a * 15) + "–" + hmMin(b * 15)).join(", ");
+  const res = $("planResume");
+  if (!sel.length) res.textContent = "Choisissez au moins une zone.";
+  else if (max === 0) res.textContent = "Personne n'est au bureau ce jour-là (week-end ou jour férié).";
+  else if (max === sel.length) res.innerHTML = "<b>✓ Créneau commun</b> (heure de Lyon) : " + txt;
+  else {
+    const abs = comptes[plages[0][0]].absents.map(id => id === "lyon" ? "Lyon" : PAR_ID[id].code).join(", ");
+    res.textContent = "Aucun créneau où tout le monde est au bureau. Meilleur compromis (heure de Lyon) : " + txt +
+      " — " + max + "/" + sel.length + " zones, absents : " + abs + ".";
+  }
+  majCurseurPlan();
+}
+function majCurseurPlan() {
+  $("planTrait").style.left = (simu.min / 1440 * 100) + "%";
+  $("planHeure").textContent = hmMin(simu.min);
+}
+$("bPlanifier").onclick = ouvrirPlan;
+$("planFermer").onclick = fermerPlan;
+$("planCurseur").addEventListener("input", ev => { simu.min = +ev.target.value; majCurseurPlan(); tic(); });
+$("planDate").addEventListener("change", ev => { if (ev.target.value) { simu.date = ev.target.value; calculerPlan(); tic(); } });
+$("planMaintenant").onclick = () => {
+  const l = mur(LYON.tz, maintenant());
+  simu.date = cleJour(l);
+  simu.min = Math.min(1425, Math.ceil((l.getUTCHours() * 60 + l.getUTCMinutes()) / 15) * 15);
+  $("planDate").value = simu.date; $("planCurseur").value = simu.min;
+  calculerPlan(); tic();
+};
+
+// ======================================================================== Rappels (notifications Windows)
+const CLE_RAPPELS = "horloge-outremer.rappels";
+let derniereMinuteRappel = -1;
+function notifier(titre, texte, tag) {
+  try { new Notification(titre, { body: texte, icon: "icon.svg", tag }); }
+  catch (e) {
+    if (navigator.serviceWorker) navigator.serviceWorker.ready
+      .then(r => r.showNotification(titre, { body: texte, icon: "icon.svg", tag })).catch(() => {});
+  }
+}
+function verifierRappels(reel) {
+  if (!etat.rappels || !("Notification" in window) || Notification.permission !== "granted") return;
+  const minute = Math.floor(reel.getTime() / 60e3);
+  if (minute === derniereMinuteRappel) return;
+  derniereMinuteRappel = minute;
+  let envoyes = {};
+  try { envoyes = JSON.parse(localStorage.getItem(CLE_RAPPELS)) || {}; } catch (e) {}
+  let modifie = false;
+  const envoyer = (cle, titre, texte) => {
+    if (envoyes[cle]) return;
+    envoyes[cle] = Date.now(); modifie = true;
+    notifier(titre, texte, cle);
+  };
+  const hLyon = mur(LYON.tz, reel).getUTCHours();
+  const actives = etat.ordre.filter(id => !etat.masquees.includes(id));
+  const fenetreLyon = hLyon >= 6 && hLyon < 23; // pas de notification en pleine nuit à Lyon
+  for (const id of actives) {
+    const z = PAR_ID[id], loc = mur(z.tz, reel), j = loc.getUTCDay();
+    if (j === 0 || j === 6 || ferie(id, loc)) continue;
+    const min = loc.getUTCHours() * 60 + loc.getUTCMinutes(), ouv = OUVERTURE * 60;
+    if (fenetreLyon && min >= ouv - RAPPEL_MIN && min < ouv) {
+      const lyonOuv = mur(LYON.tz, new Date(reel.getTime() + (ouv - min) * 60e3 - loc.getUTCSeconds() * 1000));
+      envoyer("o:" + id + ":" + cleJour(loc), z.nom + " ouvre dans " + (ouv - min) + " min",
+        hmMin(ouv) + " sur place · " + hm(lyonOuv) + " à Lyon");
+    }
+  }
+  if (hLyon >= 9 && hLyon < 21) { // veille d'un férié local (Lyon travaille) : une notification par férié
+    const groupes = {};
+    for (const id of actives) {
+      const p = prochainsFeries(id, mur(PAR_ID[id].tz, reel), 1, 1, true)[0];
+      if (p) (groupes[cleJour(p.date) + "|" + p.nom] = groupes[cleJour(p.date) + "|" + p.nom] || { p, ids: [] }).ids.push(id);
+    }
+    for (const k in groupes) {
+      const { p, ids } = groupes[k];
+      envoyer("f:" + k, "Demain férié : " + ids.map(id => PAR_ID[id].nom).join(", "), p.nom + " (" + fmtCourt.format(p.date) + ")");
+    }
+  }
+  if (modifie) {
+    for (const k in envoyes) if (Date.now() - envoyes[k] > 3 * 864e5) delete envoyes[k];
+    try { localStorage.setItem(CLE_RAPPELS, JSON.stringify(envoyes)); } catch (e) {}
+  }
+}
+
+// ======================================================================== Panneau équipe
+let panneauId = null, indexEdition = -1;
+function ouvrirPanneau(id) {
+  panneauId = id; indexEdition = -1;
+  $("pNom").textContent = PAR_ID[id].nom + (id === "lyon" ? "" : " · " + PAR_ID[id].ville);
+  $("voile").classList.add("ouvert");
+  rendrePanneau();
+  majTetePanneau(maintenant());
+  $("fNom").focus();
+}
+function fermerPanneau() { panneauId = null; $("voile").classList.remove("ouvert"); rendre(); }
+function majTetePanneau(reel) {
+  const lyon = mur(LYON.tz, reel);
+  const i = infos(PAR_ID[panneauId], reel, lyon);
+  appliquerCiel($("pTete"), i.ciel);
+  $("pHeure").textContent = hm(i.loc) + "  ·  " + fmtJour.format(i.loc);
+  majStatut($("pStatut"), i.st);
+  $("pEcart").textContent = (panneauId === "lyon" ? "Semaine " + semaineIso(lyon) : i.ecart + " par rapport à Lyon") +
+    (i.st.detail ? " · " + i.st.detail : "");
+  const m = htmlMeteo(panneauId, "");
+  majHtml($("pMeteo"), m.html); $("pMeteo").title = m.titre;
+}
+function lienContact(c) {
+  c = c.trim();
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c)) return { type: "mail", url: "mailto:" + c };
+  const tel = c.replace(/[\s.()-]/g, "");
+  if (/^\+?\d{6,15}$/.test(tel)) return { type: "tel", url: "tel:" + tel };
+  return null;
+}
+const ICO = {
+  teams: S('<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>'),
+  mail: S('<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>'),
+  tel: S('<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>'),
+  modif: S('<path d="M4 20h4L19 9l-4-4L4 16v4z"/>'),
+  suppr: S('<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>'),
+};
+function rendrePanneau() {
+  const liste = etat.equipe[panneauId] || [];
+  const ul = $("pListe");
+  ul.replaceChildren();
+  $("pVide").hidden = liste.length > 0;
+  $("pTitreListe").textContent = "Équipe" + (liste.length ? " · " + liste.length : "");
+  liste.forEach((p, i) => {
+    const li = document.createElement("li");
+    li.className = "personne";
+    li.appendChild(avatar(p));
+    const qui = document.createElement("div");
+    qui.className = "qui";
+    const b = document.createElement("b"); b.textContent = p.nom; qui.appendChild(b);
+    const sous = [p.role, p.contact].filter(Boolean).join(" · ");
+    if (sous) { const s = document.createElement("span"); s.textContent = sous; qui.appendChild(s); }
+    li.appendChild(qui);
+
+    const act = document.createElement("div");
+    act.className = "act";
+    const lien = p.contact ? lienContact(p.contact) : null;
+    const ajouterLien = (url, ico, titre) => {
+      const a = document.createElement("a");
+      a.href = url; a.innerHTML = ico; a.title = titre; a.target = "_blank"; a.rel = "noopener";
+      act.appendChild(a);
+    };
+    if (lien && lien.type === "mail") {
+      ajouterLien("https://teams.microsoft.com/l/chat/0/0?users=" + encodeURIComponent(p.contact.trim()), ICO.teams, "Discuter sur Teams");
+      ajouterLien(lien.url, ICO.mail, "Envoyer un e-mail");
+    } else if (lien) ajouterLien(lien.url, ICO.tel, "Appeler");
+    const bM = document.createElement("button"); bM.innerHTML = ICO.modif; bM.title = "Modifier";
+    bM.onclick = () => editerPersonne(i);
+    const bS = document.createElement("button"); bS.innerHTML = ICO.suppr; bS.title = "Supprimer";
+    bS.onclick = () => {
+      if (!vue().confirm("Retirer " + p.nom + " de l'équipe " + PAR_ID[panneauId].nom + " ?")) return;
+      liste.splice(i, 1);
+      if (!liste.length) delete etat.equipe[panneauId];
+      sauver(); indexEdition = -1; rendrePanneau();
+    };
+    act.append(bM, bS);
+    li.appendChild(act);
+    ul.appendChild(li);
+  });
+  if (indexEdition < 0) $("pForm").reset();
+  $("fValider").textContent = indexEdition < 0 ? "Ajouter" : "Enregistrer";
+  $("fAnnuler").hidden = indexEdition < 0;
+
+  const fe = $("pFeries");
+  fe.replaceChildren();
+  const loc = mur(PAR_ID[panneauId].tz, maintenant());
+  const aujourdHui = ferie(panneauId, loc);
+  const lignes = (aujourdHui ? [{ date: loc, nom: aujourdHui, dans: 0 }] : []).concat(prochainsFeries(panneauId, loc, aujourdHui ? 3 : 4));
+  lignes.forEach(f => {
+    const li = document.createElement("li");
+    const a = document.createElement("span"); a.textContent = fmtCourt.format(f.date) + " · " + f.nom;
+    const b = document.createElement("span"); b.textContent = f.dans === 0 ? "aujourd'hui" : f.dans === 1 ? "demain" : "dans " + f.dans + " j";
+    li.append(a, b);
+    fe.appendChild(li);
+  });
+}
+function editerPersonne(i) {
+  const p = etat.equipe[panneauId][i];
+  indexEdition = i;
+  rendrePanneau();
+  $("fNom").value = p.nom; $("fRole").value = p.role; $("fContact").value = p.contact;
+  $("fNom").focus();
+}
+$("pForm").addEventListener("submit", ev => {
+  ev.preventDefault();
+  const p = { nom: $("fNom").value.trim(), role: $("fRole").value.trim(), contact: $("fContact").value.trim() };
+  if (!p.nom) return;
+  const liste = etat.equipe[panneauId] || (etat.equipe[panneauId] = []);
+  if (indexEdition >= 0) liste[indexEdition] = p; else liste.push(p);
+  indexEdition = -1;
+  sauver(); rendrePanneau(); $("fNom").focus();
+});
+$("fAnnuler").onclick = () => { indexEdition = -1; rendrePanneau(); };
+$("pFermer").onclick = fermerPanneau;
+$("voile").addEventListener("mousedown", ev => { if (ev.target === $("voile")) fermerPanneau(); });
+
+// ======================================================================== Affichage : vues, redimensionnement, message
+let hauteurDepliee = 0;
+function changerVue(v) {
+  const avant = etat.vue;
+  if (v === avant) return;
+  etat.vue = v; edition = false;
+  if (v !== "complet" && simu) simu = null;
+  sauver(); rendre();
+  try { // ajuste la fenêtre (application Chrome / Edge, fenêtre flottante)
+    const w = vue(), bord = w.outerHeight - w.innerHeight;
+    if (avant === "complet") hauteurDepliee = w.outerHeight;
+    if (v !== "complet") {
+      requestAnimationFrame(() => {
+        const pad = v === "mini" ? 12 : 24;
+        w.resizeTo(w.outerWidth, Math.ceil(app.getBoundingClientRect().height + pad + bord));
+      });
+    } else if (hauteurDepliee) w.resizeTo(w.outerWidth, hauteurDepliee);
+  } catch (e) {}
+}
+let toastT;
+function toast(txt) {
+  const t = $("toast");
+  t.textContent = txt; t.classList.add("vu");
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove("vu"), 4500);
+}
+
+// ======================================================================== Barre d'outils / menu
+$("outils").addEventListener("click", ev => ev.stopPropagation());
+$("hero").addEventListener("click", () => { if (!edition) ouvrirPanneau("lyon"); });
+$("bOrganiser").onclick = () => { edition = !edition; simu = null; fermerMenu(); if (edition && etat.vue !== "complet") changerVue("complet"); else rendre(); };
+$("bTermine").onclick = () => { edition = false; rendre(); };
+$("bReduire").onclick = () => changerVue(etat.vue === "complet" ? "reduit" : "complet");
+$("bMenu").onclick = () => $("menu").classList.toggle("ouvert");
+function fermerMenu() { $("menu").classList.remove("ouvert"); }
+function brancherDocument(doc) { // écouteurs globaux, pour la fenêtre principale et la fenêtre flottante
+  doc.addEventListener("click", ev => { if (!ev.target.closest("#bMenu") && !ev.target.closest("#menu")) fermerMenu(); });
+  doc.addEventListener("keydown", ev => {
+    if (ev.key !== "Escape") return;
+    if (panneauId) fermerPanneau(); else if (edition) { edition = false; rendre(); } else if (simu) fermerPlan(); else fermerMenu();
+  });
+}
+brancherDocument(document);
+
+$("menu").addEventListener("click", async ev => {
+  const b = ev.target.closest("button[data-act]");
+  if (!b) return;
+  if (!b.hasAttribute("data-garder")) fermerMenu();
+  const act = b.dataset.act;
+  if (act === "secondes") { etat.secondes = !etat.secondes; sauver(); rendre(); }
+  if (act === "tri") { etat.tri = etat.tri === "actif" ? "manuel" : "actif"; sauver(); rendre(); }
+  if (act === "liste") { etat.disposition = etat.disposition === "liste" ? "grille" : "liste"; sauver(); rendre(); }
+  if (act === "mini") changerVue("mini");
+  if (act === "afficher") { edition = true; simu = null; if (etat.vue !== "complet") changerVue("complet"); else rendre(); }
+  if (act === "theme") { etat.theme = { sombre: "clair", clair: "auto", auto: "sombre" }[etat.theme]; sauver(); rendre(); }
+  if (act === "taille-" || act === "taille+") {
+    const i = TAILLES.indexOf(etat.taille) + (act === "taille+" ? 1 : -1);
+    etat.taille = TAILLES[Math.max(0, Math.min(TAILLES.length - 1, i))]; sauver(); rendre();
+  }
+  if (act === "meteo") { etat.meteo = !etat.meteo; sauver(); if (etat.meteo) { meteoTs = 0; } rendre(); }
+  if (act === "rappels") {
+    if (etat.rappels) { etat.rappels = false; toast("Rappels désactivés"); }
+    else if (!("Notification" in window)) toast("Les notifications ne sont pas disponibles dans ce navigateur.");
+    else {
+      const p = await Notification.requestPermission();
+      if (p === "granted") {
+        etat.rappels = true;
+        toast("Rappels activés : " + RAPPEL_MIN + " min avant l'ouverture (" + OUVERTURE + " h sur place) et la veille des jours fériés.");
+      } else toast("Notifications refusées : autorisez-les dans les réglages du site (icône à gauche de l'adresse).");
+    }
+    sauver(); rendre();
+  }
+  if (act === "partager") {
+    const url = location.origin + location.pathname + "#config=" + await encoderConfig();
+    try { await vue().navigator.clipboard.writeText(url); toast("Lien copié ! Il contient votre équipe : partagez-le en privé (Teams, e-mail)."); }
+    catch (e) { vue().prompt("Copiez ce lien (il contient votre équipe, à partager en privé) :", url); }
+  }
+  if (act === "reinit") {
+    if (!vue().confirm("Remettre l'ordre et l'affichage des zones par défaut ? (l'équipe est conservée)")) return;
+    const d = DEFAUT(); etat.ordre = d.ordre; etat.masquees = d.masquees; etat.disposition = d.disposition;
+    sauver(); rendre();
+  }
+  if (act === "exporter") {
+    const blob = new Blob([JSON.stringify({ application: "horloge-outremer", version: 2, ...etat }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "horloge-outremer-equipe.json";
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+  if (act === "importer") $("fichier").click();
+});
+$("fichier").addEventListener("change", async ev => {
+  const f = ev.target.files[0];
+  ev.target.value = "";
+  if (!f) return;
+  try {
+    const donnees = JSON.parse(await f.text());
+    if (!donnees || typeof donnees !== "object") throw new Error();
+    const n = Object.values(donnees.equipe || {}).reduce((t, l) => t + (Array.isArray(l) ? l.length : 0), 0);
+    if (!vue().confirm("Importer ce fichier ? (" + n + " personne(s)). Votre équipe et votre disposition actuelles seront remplacées.")) return;
+    etat = normaliser(donnees);
+    sauver(); rendre();
+  } catch (e) { vue().alert("Fichier invalide : ce n'est pas un export de l'Horloge Outre-Mer."); }
+});
+
+// ======================================================================== Lien de partage (#config=…)
+// Les données sont dans la partie « # » du lien : elles ne sont jamais envoyées au serveur GitHub.
+const CHAMPS_PARTAGES = ["ordre", "masquees", "disposition", "tri", "equipe"];
+async function flux(octets, transfo) {
+  return new Uint8Array(await new Response(new Blob([octets]).stream().pipeThrough(transfo)).arrayBuffer());
+}
+async function encoderConfig() {
+  const obj = {};
+  CHAMPS_PARTAGES.forEach(k => obj[k] = etat[k]);
+  let octets = new TextEncoder().encode(JSON.stringify(obj)), prefixe = "j";
+  if ("CompressionStream" in window) {
+    try { octets = await flux(octets, new CompressionStream("deflate-raw")); prefixe = "z"; } catch (e) {}
+  }
+  let bin = "";
+  octets.forEach(x => bin += String.fromCharCode(x));
+  return prefixe + btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+async function decoderConfig(code) {
+  let b64 = code.slice(1).replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  let octets = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+  if (code[0] === "z") octets = await flux(octets, new DecompressionStream("deflate-raw"));
+  else if (code[0] !== "j") throw new Error("format");
+  return JSON.parse(new TextDecoder().decode(octets));
+}
+async function importerDepuisLien() {
+  const m = location.hash.match(/^#config=(.+)$/);
+  if (!m) return;
+  history.replaceState(null, "", location.pathname + location.search);
+  try {
+    const d = await decoderConfig(m[1]);
+    const n = Object.values(d.equipe || {}).reduce((t, l) => t + (Array.isArray(l) ? l.length : 0), 0);
+    if (!vue().confirm("Ce lien contient une configuration partagée (" + n + " personne(s) dans l'équipe).\n" +
+                       "Remplacer votre disposition et votre équipe actuelles ?")) return;
+    const garde = {};
+    CHAMPS_PARTAGES.forEach(k => { if (k in d) garde[k] = d[k]; });
+    etat = normaliser(Object.assign({}, etat, garde));
+    sauver(); rendre();
+    toast("Configuration importée.");
+  } catch (e) { vue().alert("Ce lien de configuration est invalide ou incomplet."); }
+}
+
+// ======================================================================== Événements globaux
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { derniereSynchro = Date.now(); synchroniser(); tic(); } });
+window.addEventListener("online", () => { derniereSynchro = Date.now(); synchroniser(); });
+window.addEventListener("storage", ev => { if (ev.key === CLE) { etat = charger(); rendre(); if (panneauId) rendrePanneau(); } });
+window.addEventListener("hashchange", importerDepuisLien);
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => { if (etat.theme === "auto") rendre(); });
+
+// ======================================================================== Fenêtre flottante (toujours au premier plan)
+// API « Document Picture-in-Picture » de Chrome / Edge (version 116+, page https ou localhost).
+let pip = null;
+$("bFlottant").hidden = !("documentPictureInPicture" in window);
+async function ouvrirFlottant() {
+  if (pip) { pip.close(); return; }
+  try {
+    pip = await documentPictureInPicture.requestWindow({ width: 340, height: etat.vue === "complet" ? 520 : 150 });
+  } catch (e) {
+    pip = null;
+    alert("Impossible d'ouvrir la fenêtre flottante dans ce navigateur (" + e.name + ").\n" +
+          "Elle fonctionne dans Chrome ou Edge récents, depuis la page publiée en https.");
+    return;
+  }
+  document.querySelectorAll("style, link[rel=stylesheet]").forEach(s => pip.document.head.appendChild(s.cloneNode(true)));
+  pip.document.title = "Horloge Outre-Mer";
+  pip.document.body.appendChild(app);
+  brancherDocument(pip.document);
+  document.getElementById("flottant").hidden = false;
+  pip.addEventListener("pagehide", () => {
+    document.body.appendChild(app);
+    document.getElementById("flottant").hidden = true;
+    pip = null;
+    rendre();
+  });
+  rendre();
+}
+$("bFlottant").onclick = ouvrirFlottant;
+document.getElementById("bRevenir").onclick = () => { if (pip) pip.close(); };
+
+if ("serviceWorker" in navigator && location.protocol === "https:")
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+
+rendre();
+planifier();
+importerDepuisLien();
+</script>
+</body>
+</html>
